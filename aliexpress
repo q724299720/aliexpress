@@ -1,0 +1,102 @@
+import requests
+from requests.cookies import RequestsCookieJar
+import os
+import re
+import time
+import random
+class Aliexpress:
+    def __init__(self,urls):
+        self.urls=urls #获取整个页面的url
+        self.url=urls  #单个产品url
+        self.content=''  #页面代码,可以是批量产品的,也可以是单个产品的
+        self.document='' #当前产品文件夹名字
+        self.path='' #当前文件夹的地址
+        self.productIDs=[] #获取当前所有ID
+        self.productID='' #当前产品id
+        self.single_product_url='' #当个url地址
+        self.single_product_pic_urls=[]  #单个产品里面的url链接
+        self.description_Url='' #单个产品详情页地址
+        self.description_pic_urls=[]  #单个产品详情页里面的所有图片
+        self.description_pic_url='' #单个产品详情页里面的单张图片
+        self.down_pic=False  #代表这个产品没有下载过
+        self.run()
+
+        
+
+    def get_html(self,url): #获取网页源代码
+        send_headers = {
+            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/61.0.3163.100 Safari/537.36",
+            "Connection": "keep-alive",
+            "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,image/apng,*/*;q=0.8",
+            "Accept-Language": "zh-CN,zh;q=0.8"} 
+        cookie_jar = RequestsCookieJar()
+        cookie_jar.set("BAIDUID", "B1CCDD4B4BC886BF99364C72C8AE1C01:FG=1", domain="baidu.com")
+        self.content  = requests.get(url,headers=send_headers,cookies=cookie_jar).text
+
+    def pic_download(self,name,url):
+        send_headers = {
+            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/61.0.3163.100 Safari/537.36",
+            "Connection": "keep-alive",
+            "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,image/apng,*/*;q=0.8",
+            "Accept-Language": "zh-CN,zh;q=0.8"} 
+        cookie_jar = RequestsCookieJar()
+        cookie_jar.set("BAIDUID", "B1CCDD4B4BC886BF99364C72C8AE1C01:FG=1", domain="baidu.com")
+        html  = requests.get(url,headers=send_headers,cookies=cookie_jar).content
+        with open(self.path+'/'+str(name)+'.jpg','wb+') as f:
+            f.write(html)
+
+
+    def creat_document(self):
+        #self.path=r'products\\'+self.productID
+        folder = os.path.exists(self.path)
+ 
+        if not folder:                   #判断是否存在文件夹如果不存在则创建为文件夹
+            os.makedirs(self.path)  
+            self.down_pic=True
+            print ("---  创建新文件夹%s  ---" %(self.productID))
+        else:
+            print ("---  文件夹已存在,无法创建  ---")
+            self.down_pic=False
+            pass
+
+    
+    def get_url_from_page(self):
+        pass
+
+    def write_to_text(self,content):
+        with open(self.path+'/url.txt',"w",encoding="utf-8") as f:
+            f.write(content)
+
+    def run(self):
+       try:
+            self.get_html(self.url) #获取页面源代码
+            self.productIDs=re.findall(r'"productId":(\d+)',self.content)
+            for self.productID in self.productIDs:
+                self.single_product_url='https://www.aliexpress.com/item/'+self.productID+'.html?af=1320704&utm_campaign=1320704&aff_platform=product&utm_medium=cpa&afref=https%3A%2F%2Faliinsider.com%2F&dp=981a96b4e14351826770d1b72c818cfa&aff_fcid=bd3c089e42a245338abf9e750f2d3101-1625707072029-01694-vBAe6Au&cv=47843&aff_fsk=vBAe6Au&mall_affr=pr3&sk=vBAe6Au&aff_trace_key=bd3c089e42a245338abf9e750f2d3101-1625707072029-01694-vBAe6Au&tmLog=new_Detail&terminal_id=6bc72c4d064442b68e99de5839bca493&utm_source=admitad&utm_content=47843'
+                #self.write_to_text(self.single_product_url)
+                self.get_html(self.single_product_url) #获取单个产品的url源代码,并保存在self.content里面
+                self.description_Url=re.search('"descriptionUrl":"(.*?)"',self.content).group(1) #详情页的链接
+                #下面开始获取单个产品详情页的图片
+                self.get_html(self.description_Url) #获取详情页的代码,并存储在self.content里面
+                self.description_pic_urls=re.findall('https://ae01.alicdn.com/.*?.jpg',self.content)
+                #创建保存的文件夹
+                self.path=r'G:/programData/python/python program/project/alibaba/aliexpress/products/'+self.productID
+                self.creat_document()
+                self.write_to_text(self.single_product_url)  #保存url链接
+                if self.down_pic:
+                    name=1
+                    for pic_url in self.description_pic_urls:
+                        print('开始下载ID%s下的第%d张图片' %(self.productID,name))
+                        time.sleep(random.randint(2,5)) #随机休眠2-5秒
+                        self.pic_download(name,pic_url)  #下载图片
+                        name+=1
+                    print('-------------------当前产品图片下载完毕-------------------')
+                else:
+                    print('该产品ID已存在,停止下载')
+                time.sleep(random.randint(3,9)) #随机休眠3-9秒
+       except:
+           pass
+
+            
+
+ali=Aliexpress('https://www.aliexpress.com/af/car-seat-cover.html?d=y&origin=n&SearchText=car+seat+cover&catId=0&initiative_id=SB_20210707001329')
